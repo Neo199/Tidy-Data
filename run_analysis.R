@@ -1,39 +1,54 @@
-# Load Packages and get the Data
-packages <- c("data.table", "reshape2")
-sapply(packages, require, character.only=TRUE, quietly=TRUE)
-path <- getwd()
-url <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
-download.file(url, file.path(path, "dataFiles.zip"))
-unzip(zipfile = "dataFiles.zip")
+library(plyr)
 
-# Load activity labels + features
-activityLabels <- fread(file.path(path, "UCI HAR Dataset/activity_labels.txt"), col.names = c("classLabels", "activityName"))
-features <- fread(file.path(path, "UCI HAR Dataset/features.txt"), col.names = c("index", "featureNames"))
-featuresWanted <- grep("(mean|std)\\(\\)", features[, featureNames])
-measurements <- features[featuresWanted, featureNames]
-measurements <- gsub('[()]', '', measurements)
+# Download and unzip the file:
+fileUrl <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+download.file(fileUrl, "finaldata.zip", method="curl")
+if(!file.exists("./UCI HAR Dataset")) {
+    unzip("finaldata.zip")
+}
+dateDownloaded <- now()
 
-# Load train datasets
-train <- fread(file.path(path, "UCI HAR Dataset/train/X_train.txt"))[, featuresWanted, with = FALSE]
-data.table::setnames(train, colnames(train), measurements)
-trainActivities <- fread(file.path(path, "UCI HAR Dataset/train/Y_train.txt"), col.names = c("Activity"))
-trainSubjects <- fread(file.path(path, "UCI HAR Dataset/train/subject_train.txt"), col.names = c("SubjectNum"))
-train <- cbind(trainSubjects, trainActivities, train)
+# Reading Files:
+xTrain    <- read.table("./UCI HAR Dataset/train/X_train.txt")
+xTest     <- read.table("./UCI HAR Dataset/test/X_test.txt")
+yTrain    <- read.table("./UCI HAR Dataset/train/Y_train.txt")
+yTest     <- read.table("./UCI HAR Dataset/test/Y_test.txt")
+subjectTrain <- read.table("./UCI HAR Dataset/train/subject_train.txt")
+subjectTest  <- read.table("./UCI HAR Dataset/test/subject_test.txt")
+activityLabels <- read.table("./UCI HAR Dataset/activity_labels.txt")
+featuresNames  <- read.table("./UCI HAR Dataset/features.txt")
 
-# Load test datasets
-test <- fread(file.path(path, "UCI HAR Dataset/test/X_test.txt"))[, featuresWanted, with = FALSE]
-data.table::setnames(test, colnames(test), measurements)
-testActivities <- fread(file.path(path, "UCI HAR Dataset/test/Y_test.txt"), col.names = c("Activity"))
-testSubjects <- fread(file.path(path, "UCI HAR Dataset/test/subject_test.txt"), col.names = c("SubjectNum"))
-test <- cbind(testSubjects, testActivities, test)
+# Merging the Data
+xFeaturesData <- rbind(xTrain, xTest)
+yActivityData <- rbind(yTrain, yTest)
+subjectData <- rbind(subjectTrain, subjectTest)
 
-# merge datasets
-combined <- rbind(train, test)
+# set names to variables
+names(subjectData)   <- "subject"
+names(yActivityData) <- "activity"
+names(xFeaturesData) <- featuresNames$V2
 
-# Convert classLabels to activityName basically. More explicit. 
-combined[["Activity"]] <- factor(combined[, Activity], levels = activityLabels[["classLabels"]], labels = activityLabels[["activityName"]])
-combined[["SubjectNum"]] <- as.factor(combined[, SubjectNum])
-combined <- reshape2::melt(data = combined, id = c("SubjectNum", "Activity"))
-combined <- reshape2::dcast(data = combined, SubjectNum + Activity ~ variable, fun.aggregate = mean)
+# Merging all datas in one
+allData <- cbind(xFeaturesData, yActivityData, subjectData)
 
-data.table::fwrite(x = combined, file = "tidyData.txt", quote = FALSE)
+# get only columns with mean() or std() in their names
+mean_and_std_features <- featuresNames$V2[grep("mean\\(\\)|std\\(\\)", featuresNames$V2)]
+
+# subset the desired columns
+selectedColumns <- c(as.character(mean_and_std_features), "subject", "activity" )
+allData <- subset(allData, select=selectedColumns)
+
+# update values with correct activity names
+allData$activity <- activityLabels[allData$activity, 2]
+
+#labelling data
+names(allData) <-gsub("^t", "time", names(allData))
+names(allData) <-gsub("^f", "frequency", names(allData))
+names(allData) <-gsub("Acc", "Accelerometer", names(allData))
+names(allData) <-gsub("Gyro", "Gyroscope", names(allData))
+names(allData) <-gsub("Mag", "Magnitude", names(allData))
+names(allData) <-gsub("BodyBody", "Body", names(allData))
+
+finalData <- ddply(allData, .(subject, activity), function(x) colMeans(x[, 1:66]))
+
+write.table(finalData, "tidy.txt", row.name=FALSE)
