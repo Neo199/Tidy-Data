@@ -23,22 +23,22 @@ xFeaD <- rbind(x_train, x_test)
 yActD <- rbind(y_train, y_test)
 subd <- rbind(sub_train, sub_test)
 
-# set names to variables
+# naming variables
 names(subd)   <- "subject"
 names(yActD) <- "activity"
 names(xFeaD) <- featuresNames$V2
 
-# Merging all datas in one
+# Merging data
 nd <- cbind(xFeaD, yActD, subd)
 
 #cols with mean & std
 ms_features <- featuresNames$V2[grep("mean\\(\\)|std\\(\\)", featuresNames$V2)]
 
-# subset the desired columns
+# subsetting columns
 selcol <- c(as.character(ms_features), "subject", "activity" )
 nd <- subset(nd, select=selcol)
 
-# update values
+# updating values
 nd$activity <- actl[nd$activity, 2]
 
 names(nd) <-gsub("^t", "time", names(nd))
