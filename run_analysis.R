@@ -9,46 +9,45 @@ if(!file.exists("./UCI HAR Dataset")) {
 dateDownloaded <- now()
 
 # Reading Files:
-xTrain    <- read.table("./UCI HAR Dataset/train/X_train.txt")
-xTest     <- read.table("./UCI HAR Dataset/test/X_test.txt")
-yTrain    <- read.table("./UCI HAR Dataset/train/Y_train.txt")
-yTest     <- read.table("./UCI HAR Dataset/test/Y_test.txt")
-subjectTrain <- read.table("./UCI HAR Dataset/train/subject_train.txt")
-subjectTest  <- read.table("./UCI HAR Dataset/test/subject_test.txt")
-activityLabels <- read.table("./UCI HAR Dataset/activity_labels.txt")
-featuresNames  <- read.table("./UCI HAR Dataset/features.txt")
+x_train    <- read.table("./UCI HAR Dataset/train/X_train.txt")
+x_test     <- read.table("./UCI HAR Dataset/test/X_test.txt")
+y_train    <- read.table("./UCI HAR Dataset/train/Y_train.txt")
+y_test     <- read.table("./UCI HAR Dataset/test/Y_test.txt")
+sub_train <- read.table("./UCI HAR Dataset/train/subject_train.txt")
+sub_test  <- read.table("./UCI HAR Dataset/test/subject_test.txt")
+actl <- read.table("./UCI HAR Dataset/activity_labels.txt")
+features <- read.table("./UCI HAR Dataset/features.txt")
 
 # Merging the Data
-xFeaturesData <- rbind(xTrain, xTest)
-yActivityData <- rbind(yTrain, yTest)
-subjectData <- rbind(subjectTrain, subjectTest)
+xFeaD <- rbind(x_train, x_test)
+yActD <- rbind(y_train, y_test)
+subd <- rbind(sub_train, sub_test)
 
 # set names to variables
-names(subjectData)   <- "subject"
-names(yActivityData) <- "activity"
-names(xFeaturesData) <- featuresNames$V2
+names(subd)   <- "subject"
+names(yActD) <- "activity"
+names(xFeaD) <- featuresNames$V2
 
 # Merging all datas in one
-allData <- cbind(xFeaturesData, yActivityData, subjectData)
+nd <- cbind(xFeaD, yActD, subd)
 
-# get only columns with mean() or std() in their names
-mean_and_std_features <- featuresNames$V2[grep("mean\\(\\)|std\\(\\)", featuresNames$V2)]
+#cols with mean & std
+ms_features <- featuresNames$V2[grep("mean\\(\\)|std\\(\\)", featuresNames$V2)]
 
 # subset the desired columns
-selectedColumns <- c(as.character(mean_and_std_features), "subject", "activity" )
-allData <- subset(allData, select=selectedColumns)
+selcol <- c(as.character(ms_features), "subject", "activity" )
+nd <- subset(nd, select=selcol)
 
-# update values with correct activity names
-allData$activity <- activityLabels[allData$activity, 2]
+# update values
+nd$activity <- actl[nd$activity, 2]
 
-#labelling data
-names(allData) <-gsub("^t", "time", names(allData))
-names(allData) <-gsub("^f", "frequency", names(allData))
-names(allData) <-gsub("Acc", "Accelerometer", names(allData))
-names(allData) <-gsub("Gyro", "Gyroscope", names(allData))
-names(allData) <-gsub("Mag", "Magnitude", names(allData))
-names(allData) <-gsub("BodyBody", "Body", names(allData))
+names(nd) <-gsub("^t", "time", names(nd))
+names(nd) <-gsub("^f", "frequency", names(nd))
+names(nd) <-gsub("Acc", "Accelerometer", names(nd))
+names(nd) <-gsub("Gyro", "Gyroscope", names(nd))
+names(nd) <-gsub("Mag", "Magnitude", names(nd))
+names(nd) <-gsub("BodyBody", "Body", names(nd))
 
-finalData <- ddply(allData, .(subject, activity), function(x) colMeans(x[, 1:66]))
+fd <- ddply(nd, .(subject, activity), function(x) colMeans(x[, 1:66]))
 
 write.table(finalData, "tidy.txt", row.name=FALSE)
